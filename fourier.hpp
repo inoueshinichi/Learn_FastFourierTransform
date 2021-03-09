@@ -14,9 +14,8 @@ class Fourier
     /**
      * @brief 回転子
      * 複素数: a+j*b
-     * W_k,n = exp{-j*2*pi*k*n/N} = cos{2*pi*k*n/N} + j*sin{2*pi*k*n/N}
-     * @note kは基本角周波数のk倍
-     * @note nはサンプリング添字
+     * W_k = exp{-j*2*pi*k/N} = cos{2*pi*k/N} + j*sin{2*pi*k/N}
+     * @note kは基本角周波数のk倍(kの個数はNに一致する)
      * @note Nはサンプリング数
      */
     using Rotor = std::complex<double>;
@@ -25,6 +24,7 @@ class Fourier
     /**
      * @brief 複素フーリエ係数
      * @note If dft, X_k = Σ_n{W_k,n * x(n)} (n=0,...N-1)
+     * @note N倍されているので、振幅・位相として使用するときは1/N倍すること.
      */
     using FourierCoef = std::complex<double>;
     std::vector<FourierCoef> fouriers_;
@@ -41,21 +41,18 @@ class Fourier
      */
     size_t size_;
 
-    // 回転子W_k,nを作成
+    // 回転子W_kを作成
     void calc_rotors()
     {
         double w_cos = 0.0;
         double w_sin = 0.0;
-        double base_freq = 3.141592653589793; //std::numbers::pi / size_;
-        rotors_.resize(size_ * size_);
+        double base_freq = 2 * 3.141592653589793 / size_; //std::numbers::pi / size_;
+        rotors_.resize(size_);
         for (size_t k = 0; k < size_; ++k)
         {
-            for (size_t n = 0; n < size_; ++n)
-            {
-                w_cos = std::cos(base_freq * k * n);
-                w_sin = std::sin(base_freq * k * n);
-                rotors_[k * size_ + n] = std::complex(w_cos, w_sin); 
-            }
+            w_cos = std::cos(base_freq * k);
+            w_sin = std::sin(base_freq * k);
+            rotors_[k] = std::complex(w_cos, w_sin); 
         }
     }
 
@@ -75,24 +72,62 @@ public:
     Fourier(Fourier&&) = default;
     Fourier& operator=(Fourier&&) = default;
 
+    std::vector<std::complex<double>> rotors() const
+    {
+        return rotors_;
+    }
+
+    size_t size() const
+    {
+        return size_;
+    }
+
+    std::vector<std::complex<double>> fourier_coef() const
+    {
+        return fouriers_;
+    }
+
     bool dft(double* data, size_t size)
     {
+        /*むちゃくちゃ遅いので、検証用に使うこと*/
         if (size > size_)
             return false;
 
         data_.resize(size_);
         std::fill(std::begin(data_), std::end(data_), (double)0); // 0ゼロ埋め
-        std::copy(std::begin(data), std::end(data), std::begin(data_));
+        for (size_t i = 0; i < size_; ++i) { data_[i] = data[i]; }
         fouriers_.resize(size_);
+
+        // 回転子行列W_k,nを作成
+        std::vector<Rotor> mtx_rotors(size_ * size_);
+        double w_cos = 0.0;
+        double w_sin = 0.0;
+        double base_freq = 3.141592653589793 / size_; //std::numbers::pi / size_;
+        for (size_t k = 0; k < size_; ++k)
+        {
+            for (size_t n = 0; n < size_; ++n)
+            {
+                w_cos = std::cos(base_freq * k * n);
+                w_sin = std::sin(base_freq * k * n);
+                mtx_rotors[k * size_ + n] = std::complex(w_cos, w_sin); 
+            }
+        }
 
         // 愚直に行列を2重for文で計算: O(N^2)
         for (size_t k = 0; k < size_; ++k)
         {
             for (size_t n = 0; n < size_; ++n)
             {
-                fouriers_[k] += rotors_[k * size_ + n] * data_.at(n);
+                // N倍されて出力される
+                fouriers_[k] += mtx_rotors[k * size_ + n] * data_.at(n);
             }
         }
+
+        // 1/N化する
+        std::for_each(std::begin(fouriers_), std::end(fouriers_), [&](auto& value) {
+            value = value / std::complex<double>(1.0/size_, 0.0);
+        });
+                
         return true;
     }
 
@@ -103,8 +138,8 @@ public:
             return false;
 
         data_.resize(size_);
-        std::fill(std::begin(data_), std::end(data_), (double)0); // 0ゼロ埋め
-        std::copy(std::begin(data), std::end(data), std::begin(data_));
+        std::fill(std::begin(data_), std::end(data_), (double)0); // ゼロ埋め
+        for (size_t i = 0; i < size_; ++i) { data_[i] = data[i]; } // 端数はゼロ埋めされてる
 
         // ポリシーが受け持つ独自アルゴリズムに任せる
         fouriers_ = FftPolicy::fft(data_, rotors_);
@@ -137,8 +172,8 @@ public:
         std::transform(std::begin(fouriers_), 
                        std::end(fouriers_),
                        std::begin(amplifiers), 
-                       [&size_](const auto& value) -> double {
-                           return std::abs(value) / size_; // 振幅はN倍化されているので、戻す
+                       [&](const auto& value) -> double {
+                           return std::abs(value);
         });
 
         return amplifiers;
