@@ -143,7 +143,7 @@ namespace fft
                 std::complex<double> tmp = fouriers[i]; 
                 fouriers[i] = fouriers[indice_map[i]];
                 fouriers[indice_map[i]] = tmp;
-                std::printf("indice_map[%d]=%d\n", i, indice_map[i]);
+                std::printf("indice_map[%zu]=%zu\n", i, indice_map[i]);
             }
 
             // 複素フーリエ係数はN倍化されたままなので、1/Nする

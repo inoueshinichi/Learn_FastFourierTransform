@@ -1,7 +1,11 @@
 #include "fourier.hpp"
 
+#include "matplotlibcpp.h"
+
 #include <iostream>
 #include <vector>
+
+namespace plt = matplotlibcpp;
 
 int main(int, char**) 
 {
@@ -40,4 +44,6 @@ int main(int, char**)
     std::for_each(std::begin(fourier_coef), std::begin(fourier_coef) + 8, [] (auto value) {
         std::cout << "Amp: " << std::abs(value) << ", Angle: " << std::arg(value) << std::endl;
     });
+
+    
 }
