@@ -74,6 +74,7 @@ namespace fft
         fft(const std::vector<double>& data, const RotorVector& rotors)
         {
             /*周波数間引き型のFFT*/
+            // https://qiita.com/tommyecguitar/items/c7f1049b308411dbd6d3
 
             // 複素フーリエ係数の準備
             FourierVector fouriers(data.size()); // N倍されて出力される
@@ -99,7 +100,7 @@ namespace fft
             int half_size = data.size();
             int butterfly_num = 1;
             int butterfly_offset, j1, j2, idx_w;
-            for (int i = 1; i <= n_level; ++i) // 統治分割のレベル
+            for (int i = 0; i < n_level; ++i) // 統治分割のレベル
             {
                 half_size /= 2; // half_sizeは, N/2, N/4, ...
                 butterfly_offset = 0; // 統治分割されたバタフライダイアグラムの先頭インデックス
@@ -136,25 +137,40 @@ namespace fft
              * 未実装(統治分割法を理解してからかな？)
              */
 
+            // std::printf("FFT: fourier coef\n");
+            // for (auto& f : fouriers)
+            // {
+            //     std::cout << "Amp: " << std::abs(f) << ", Angle: " << std::arg(f) << std::endl;
+            // }
+
+            // for (size_t i = 0; i < indice_map.size(); ++i)
+            // {
+            //     std::printf("indice_map[%zu]=%zu\n", i, indice_map[i]);
+            // }
 
             // バタフライダイアグラムの出力配列の並びを替える(周波数間引き型)
-            for (size_t i = 0; i < indice_map.size(); ++i)
-            {
-                std::complex<double> tmp = fouriers[i]; 
-                fouriers[i] = fouriers[indice_map[i]];
-                fouriers[indice_map[i]] = tmp;
-                std::printf("indice_map[%zu]=%zu\n", i, indice_map[i]);
+            FourierVector sorted_fouriers(data.size());
+            for (size_t i = 0; i < sorted_fouriers.size(); ++i)
+            {   
+                sorted_fouriers[i] = fouriers[indice_map[i]];
             }
 
+            // std::printf("sorted FFT: fourier coef\n");
+            // for (auto& f : fouriers)
+            // {
+            //     std::cout << "Amp: " << std::abs(f) << ", Angle: " << std::arg(f) << std::endl;
+            // }
+
+
             // 複素フーリエ係数はN倍化されたままなので、1/Nする
-            size_t size = fouriers.size();
+            size_t size = sorted_fouriers.size();
             std::complex<double> norm(1.0/size, 0.0);
-            std::for_each(std::begin(fouriers), std::end(fouriers), 
+            std::for_each(std::begin(sorted_fouriers), std::end(sorted_fouriers), 
             [&norm](auto& value) {
                 value = value / norm; // 実部、虚部をsizeで割る.
             });
 
-            return fouriers;
+            return sorted_fouriers;
         }
     };
 }
