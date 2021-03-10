@@ -25,14 +25,14 @@ int main(int, char**)
     std::cout << "Hello, Fourier!\n";
 
     // ダミーデータ(sin)
-    const int N = 1024;
+    const int N = 32;
     double basic_freq = 2 * 3.141659 / N;
     std::vector<double> x(N);
     std::vector<double> sine(N);
     for (int i = 0; i < N; ++i)
     {
         x[i] = basic_freq * i;
-        sine[i] = std::sin(x[i]) + std::sin(10 * x[i]);
+        sine[i] = std::sin(x[i]) + std::sin(5 * x[i]) + std::sin(10 * x[i]); //+ std::sin(30 * x[i]); // ナイキスト周波数16に対して30なので、エイリアシング発生
     }
 
     plt::plot(x, sine, "b");
