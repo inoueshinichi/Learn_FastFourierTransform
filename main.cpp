@@ -8,10 +8,10 @@ int main(int, char**)
     std::cout << "Hello, Fourier!\n";
 
     // ダミーデータ(sin)
-    const int N = 1000;
+    const int N = 8;
     double basic_freq = 2 * 3.141659 / N;
     std::vector<double> sine(N);
-    for (int i = 0; i < 1000; ++i)
+    for (int i = 0; i < N; ++i)
     {
         sine[i] = std::sin(basic_freq * i);
     }
@@ -29,7 +29,7 @@ int main(int, char**)
     std::cout << "-----DFT-----" << std::endl;
     fourier.dft(data, N);
     auto fourier_coef = fourier.fourier_coef();
-    std::for_each(std::begin(fourier_coef), std::begin(fourier_coef) + 5, [] (auto value) {
+    std::for_each(std::begin(fourier_coef), std::begin(fourier_coef) + 8, [] (auto value) {
         std::cout << "Amp: " << std::abs(value) << ", Angle: " << std::arg(value) << std::endl;
     });
 
@@ -37,7 +37,7 @@ int main(int, char**)
     std::cout << "-----FFT-----" << std::endl;
     fourier.fft(data, N);
     fourier_coef = fourier.fourier_coef();
-    std::for_each(std::begin(fourier_coef), std::begin(fourier_coef) + 5, [] (auto value) {
+    std::for_each(std::begin(fourier_coef), std::begin(fourier_coef) + 8, [] (auto value) {
         std::cout << "Amp: " << std::abs(value) << ", Angle: " << std::arg(value) << std::endl;
     });
 }

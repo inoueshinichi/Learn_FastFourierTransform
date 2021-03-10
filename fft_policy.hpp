@@ -21,33 +21,34 @@ namespace fft
          */
         static int indice_map_with_bit_reverse(std::vector<size_t>& indices)
         {
-            // 2のべき乗で表される数値を表現するために最低限必要なビット数を取得
+            /*2のべき乗で表される数値を表現するために最低限必要なビット数を取得*/
             size_t size = indices.size();
             size_t size_by_bit = 8 * sizeof(size); // sizeを表現するbit数
             size_t n_level;
-            size_t one_bit_count = 0; // 1じゃなければ、おかしい
             for (n_level = 0; n_level < size_by_bit; ++n_level)
             {
                 if (size >> n_level == 1)
-                    one_bit_count += 1;
+                    break;
             }
-
-            if (one_bit_count > 1)
-                throw std::runtime_error("Data size is invalid.");
+            // std::printf("n_level: %zu\n", n_level);
 
             // 参照インデックスマップを計算
             for (size_t index = 0; index < size; ++index)
             {
                 size_t bit = 0;
-                for (size_t target = index, n = 0; n < n_level; bit <<= 1, target >>= 1, ++n)
-                {
+                for (size_t target = index, n = 0; ; bit <<= 1, target >>= 1)
+                { // N=8のとき8を表現できるビット数は, n_level = 3, シフト量は, 3 - 1 = 2となる.
+
                     // targetの下位1bitを抽出して、前回抽出して1bit左シフトしたものとORをとる.
                     // これをn_level回行えば、ビットリバースが完成.
                     bit = (target & 1) | bit; 
+                    if (++n == n_level) 
+                        break;
                 }
                 // 格納
                 indices[index] = bit;
             }
+            // std::printf("check...\n");
 
             return n_level;
         }
@@ -76,12 +77,21 @@ namespace fft
 
             // 複素フーリエ係数の準備
             FourierVector fouriers(data.size()); // N倍されて出力される
-            std::copy(std::begin(data), std::end(data), std::begin(fouriers)); // 虚部なしの複素数
-            
+            // std::copy(std::begin(data), std::end(data), std::begin(fouriers)); // 虚部なしの複素数
+            for (size_t i = 0; i < data.size(); ++i)
+            {
+                fouriers[i] = std::complex<double>(data[i], 0.0); // 虚部なしの複素数
+                // std::printf("fouriers[%zu]: R:%f, I%f\n", i, fouriers[i].real(), fouriers[i].imag());
+            }
 
             // ビットリバースを行ったインデックスマップを作成
             std::vector<size_t> indice_map(data.size());
             int n_level = indice_map_with_bit_reverse(indice_map);
+            // std::printf("n_level: %d\n", n_level);
+
+            // n_levelは以下の計算でも求めることができる.
+            // int ex = (int)(std::log((double)fouriers.size()) / log(2.0));
+            // std::printf("ex: %d\n", ex);
             
             /**
              * @brief バタフライ演算
@@ -100,9 +110,12 @@ namespace fft
                     {
                         j1 = butterfly_offset + k;
                         j2 = j1 + half_size;
-                        fouriers[j1] = fouriers[j1] + fouriers[j2]; // 複素数での演算
-                        fouriers[j2] = rotors[idx_w] * (fouriers[j1] - fouriers[j2]); // 複素数での演算
+                        auto f1 = fouriers[j1];
+                        auto f2 = fouriers[j2];
+                        fouriers[j1] = f1 + f2; // 複素数での演算
+                        fouriers[j2] = rotors[idx_w] * (f1 - f2); // 複素数での演算
                         idx_w += butterfly_num; // 1, 2, 4, 8, ...の倍数で回転子の添字の加算量が増える.
+                        // std::printf("i=%d, j=%d, k=%d\n", i, j, k);
                     }
                     // butterfly_offset
                     // i==1 : N(使わない) 
@@ -127,9 +140,10 @@ namespace fft
             // バタフライダイアグラムの出力配列の並びを替える(周波数間引き型)
             for (size_t i = 0; i < indice_map.size(); ++i)
             {
-                std::complex<double> tmp = fouriers[i];
+                std::complex<double> tmp = fouriers[i]; 
                 fouriers[i] = fouriers[indice_map[i]];
                 fouriers[indice_map[i]] = tmp;
+                std::printf("indice_map[%d]=%d\n", i, indice_map[i]);
             }
 
             // 複素フーリエ係数はN倍化されたままなので、1/Nする

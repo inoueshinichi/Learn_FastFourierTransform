@@ -102,7 +102,7 @@ public:
         std::vector<Rotor> mtx_rotors(size_ * size_);
         double w_cos = 0.0;
         double w_sin = 0.0;
-        double base_freq = 3.141592653589793 / size_; //std::numbers::pi / size_;
+        double base_freq = 2 * 3.141592653589793 / size_; //std::numbers::pi / size_;
         for (size_t k = 0; k < size_; ++k)
         {
             for (size_t n = 0; n < size_; ++n)
@@ -146,13 +146,13 @@ public:
         return true;
     }
 
-    std::vector<double> get_power_spectrums()
+    std::vector<double> power_spectrums()
     {
         /**
          * @brief パワースペクトル
          * ||z|| = |z| * |z|
          */
-        auto power_spectrums = get_amplifiers();
+        auto power_spectrums = amplifiers();
         std::for_each(std::begin(power_spectrums), std::end(power_spectrums),
         [](auto& value) {
             value *= value; // 2乗
@@ -161,7 +161,7 @@ public:
         return power_spectrums;
     }
 
-    std::vector<double> get_amplifiers()
+    std::vector<double> amplifiers()
     {
         /**
          * @brief 振幅
@@ -179,7 +179,7 @@ public:
         return amplifiers;
     }
 
-    std::vector<double> get_angles()
+    std::vector<double> angles()
     {
         /**
          * @brief 位相(偏角)
