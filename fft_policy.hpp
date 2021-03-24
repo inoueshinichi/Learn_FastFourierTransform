@@ -2,11 +2,13 @@
 
 #include <complex>
 #include <vector>
+#include <tuple>
 #include <algorithm>
 // #include <numbers>
 #include <numeric>
 #include <stdexcept>
 #include <iostream>
+
 
 namespace fft
 {
@@ -61,6 +63,23 @@ namespace fft
         CooleyTurkey() {};
         ~CooleyTurkey() {};
 
+        static RotorVector calc_rotors(size_t size)
+        {
+            /*回転子W_kを作成*/
+            double w_cos = 0.0;
+            double w_sin = 0.0;
+            double base_freq = 2 * 3.141592653589793 / size; 
+            //std::numbers::pi / size;
+            RotorVector rotors(size);
+            for (size_t k = 0; k < size; ++k)
+            {
+                w_cos = std::cos(base_freq * k);
+                w_sin = std::sin(base_freq * k);
+                rotors[k] = std::complex(w_cos, w_sin);
+            }
+            return rotors;
+        }
+
         static size_t calc_size(size_t size)
         {
             size_t exp_size = 1;
@@ -70,23 +89,22 @@ namespace fft
             return exp_size;
         }
 
-        static FourierVector 
-        fft(const std::vector<double>& data, const RotorVector& rotors)
+        static std::tuple<size_t, size_t>
+        calc_2d_size(size_t width, size_t height)
+        {
+            size_t length = width > height ? width : height;
+            size_t exp_size = calc_size(length);
+            return std::make_tuple(exp_size, exp_size);
+        }
+
+        static void
+        fft(FourierVector& fouriers, const RotorVector& rotors)
         {
             /*周波数間引き型のFFT*/
             // https://qiita.com/tommyecguitar/items/c7f1049b308411dbd6d3
 
-            // 複素フーリエ係数の準備
-            FourierVector fouriers(data.size()); // N倍されて出力される
-            // std::copy(std::begin(data), std::end(data), std::begin(fouriers)); // 虚部なしの複素数
-            for (size_t i = 0; i < data.size(); ++i)
-            {
-                fouriers[i] = std::complex<double>(data[i], 0.0); // 虚部なしの複素数
-                // std::printf("fouriers[%zu]: R:%f, I%f\n", i, fouriers[i].real(), fouriers[i].imag());
-            }
-
             // ビットリバースを行ったインデックスマップを作成
-            std::vector<size_t> indice_map(data.size());
+            std::vector<size_t> indice_map(fouriers.size());
             int n_level = indice_map_with_bit_reverse(indice_map);
             // std::printf("n_level: %d\n", n_level);
 
@@ -97,7 +115,7 @@ namespace fft
             /**
              * @brief バタフライ演算
              */
-            int half_size = data.size();
+            int half_size = fouriers.size();
             int butterfly_num = 1;
             int butterfly_offset, j1, j2, idx_w;
             for (int i = 0; i < n_level; ++i) // 統治分割のレベル
@@ -124,7 +142,7 @@ namespace fft
                     // i==3 : N/4
                     // i==4 : N/8
                     // ...
-                    butterfly_offset += 2 * half_size; 
+                    butterfly_offset += 2 * half_size;
                 }
                 butterfly_num *= 2;
             }
@@ -149,7 +167,7 @@ namespace fft
             // }
 
             // バタフライダイアグラムの出力配列の並びを替える(周波数間引き型)
-            FourierVector sorted_fouriers(data.size());
+            FourierVector sorted_fouriers(fouriers.size());
             for (size_t i = 0; i < sorted_fouriers.size(); ++i)
             {   
                 sorted_fouriers[i] = fouriers[indice_map[i]];
@@ -167,10 +185,73 @@ namespace fft
             std::complex<double> norm(1.0/size, 0.0);
             std::for_each(std::begin(sorted_fouriers), std::end(sorted_fouriers), 
             [&norm](auto& value) {
-                value = value / norm; // 実部、虚部をsizeで割る.
+                value = value * norm; // 実部、虚部をsizeで割る.
             });
 
-            return sorted_fouriers;
+            // 元の引数に演算結果を返す
+            fouriers = sorted_fouriers;
+        }
+
+        static void
+        fft2d(FourierVector& fouriers,
+              const RotorVector& rotors_width,
+              const RotorVector& rotors_height)
+        {
+            /**
+             * @brief ToDo
+             * 1. 画像の行ごとにフーリエ変換
+             * 2. 複素フーリエ係数行列を転値
+             * 3. 画像の行(列)ごとにフーリエ変換
+             * 4. 2と同じことを行う
+             * 5. 完了
+             */
+            size_t width = rotors_width.size();
+            size_t height = rotors_height.size();
+
+            std::cout << "FftPolicy::fft2d" << std::endl;
+
+            // 1. 画像の行ごとにフーリエ変換
+            size_t i = 0;
+            auto j = std::begin(fouriers);
+            for (;
+                 i < height;
+                 ++i, j += width)
+            {
+                FourierVector fourier_row(j, j + width);
+                fft(fourier_row, rotors_width);
+                std::copy(std::begin(fourier_row), std::end(fourier_row), j);
+            }
+
+            // 2. 複素フーリエ係数行列を転値
+            FourierVector f_transpose(width * height);
+            for (size_t j = 0; j < height; ++j)
+            {
+                for (size_t i = 0; i < width; ++i)
+                {
+                    f_transpose.at(i * height + j) = fouriers.at(j * width + i);
+                }
+            }
+
+            // 3. 画像の行(列)ごとにフーリエ変換
+            i = 0;
+            j = std::begin(f_transpose);
+            for (;
+                 i < width;
+                 ++i, j += height)
+            {
+                FourierVector fourier_row(j, j + height);
+                fft(fourier_row, rotors_height);
+                std::copy(std::begin(fourier_row), std::end(fourier_row), j);
+            }
+
+            // 4. 2と同じことを行う
+            for (size_t j = 0; j < height; ++j)
+            {
+                for (size_t i = 0; i < width; ++i)
+                {
+                    fouriers.at(j * width + i) = f_transpose.at(i * height + j);
+                }
+            }
         }
     };
 }
