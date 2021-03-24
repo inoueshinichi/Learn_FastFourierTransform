@@ -2,6 +2,8 @@
 
 #include "matplotlibcpp.h"
 
+#include "bmp_policy.hpp"
+
 #include <iostream>
 #include <vector>
 #include <chrono>
