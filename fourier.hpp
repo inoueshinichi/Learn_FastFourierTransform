@@ -406,7 +406,6 @@ public:
         for (int y = 0, fy = half_height; y < outside_half_height; ++y, ++fy)
             for (int x = 0, fx = 0; x < half_width; ++x, ++fx)
                 left_bottom[y * half_width + x] = fouriers_[fy * width_ + fx];
-        std::cout << "debug" << std::endl;
         // 右下
         for (int y = 0, fy = half_height; y < outside_half_height; ++y, ++fy)
             for (int x = 0, fx = half_width; x < outside_half_width; ++x, ++fx)
